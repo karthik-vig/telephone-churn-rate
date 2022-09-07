@@ -110,7 +110,7 @@ def split_dataset(data_df):
     return x_train_df, y_train_df, x_val_df, y_val_df
 
 
-def pipeline(data_df):
+def data_process_pipeline(data_df):
     data_df = data_df.drop(
         columns=['id', 'circle_id', 'last_date_of_month_6', 'last_date_of_month_7', 'last_date_of_month_8'])
     data_df = create_days_feat(data_df=data_df,
@@ -125,7 +125,7 @@ def pipeline(data_df):
 def main():
     train_df = get_data_df(datasplit_type='train')
     get_data_properties(data_df=train_df)
-    train_df = pipeline(data_df=train_df)
+    train_df = data_process_pipeline(data_df=train_df)
     x_train_df, y_train_df, x_val_df, y_val_df = split_dataset(data_df=train_df)
 
     # tsne_plot(data_df=train_df, load_tnse=True)
@@ -144,7 +144,7 @@ def main():
     else:
         logreg_model = load('logreg_model.joblib')
     test_df = get_data_df(datasplit_type='test')
-    test_df = pipeline(data_df=test_df)
+    test_df = data_process_pipeline(data_df=test_df)
     logreg_preds = logreg_model.predict(test_df.to_numpy())
     print('id len', len(np.arange(69999, 70249)))
     print('churn len', len(logreg_preds))
