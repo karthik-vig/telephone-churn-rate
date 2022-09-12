@@ -189,7 +189,10 @@ def main():
     model_preds = model.predict(test_df.to_numpy())
     sol_df = pd.DataFrame({'id': np.arange(69999, 99999),
                            'churn_probability': model_preds})
-    sol_df.to_csv('solution.csv')
+    if user_input['select_model'] == 'SVM':
+        sol_df.to_csv('svm_solution.csv')
+    elif user_input['select_model'] == 'log':
+        sol_df.to_csv('logreg_solution.csv')
 
 
 if __name__ == '__main__':
