@@ -3,12 +3,12 @@ import os
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from joblib import dump, load
 from sklearn import svm
 from sklearn.linear_model import LogisticRegression
 from sklearn.manifold import TSNE
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-from joblib import dump, load
 
 
 def get_data_df(datasplit_type):
@@ -82,25 +82,28 @@ def model_classfication(model, x_train_df, y_train_df, x_test_df, y_test_df):
 
 def svm_classification(x_train_df, y_train_df, x_test_df, y_test_df):
     svm_model = svm.SVC(kernel='rbf')
-    return model_classfication(model=svm_model,
-                               x_train_df=x_train_df,
-                               y_train_df=y_train_df,
-                               x_test_df=x_test_df,
-                               y_test_df=y_test_df)
+    svm_model = model_classfication(model=svm_model,
+                                    x_train_df=x_train_df,
+                                    y_train_df=y_train_df,
+                                    x_test_df=x_test_df,
+                                    y_test_df=y_test_df)
+    dump(svm_model, 'svm_model.joblib')
+    return svm_model
 
 
 def logreg_classification(x_train_df, y_train_df, x_test_df, y_test_df):
-    logreg_model = LogisticRegression(max_iter=1000, solver='liblinear')
-    return model_classfication(model=logreg_model,
-                               x_train_df=x_train_df,
-                               y_train_df=y_train_df,
-                               x_test_df=x_test_df,
-                               y_test_df=y_test_df)
+    logreg_model = LogisticRegression(max_iter=1000)
+    logreg_model = model_classfication(model=logreg_model,
+                                       x_train_df=x_train_df,
+                                       y_train_df=y_train_df,
+                                       x_test_df=x_test_df,
+                                       y_test_df=y_test_df)
+    dump(logreg_model, 'logreg_model.joblib')
+    return logreg_model
 
 
 def split_dataset(data_df):
     y_data_df = data_df['churn_probability']
-    # print(y_data_df.to_numpy())
     x_data_df = data_df.drop(columns=['churn_probability'])
     x_train_df, x_val_df, y_train_df, y_val_df = train_test_split(x_data_df.to_numpy(),
                                                                   y_data_df.to_numpy(),
@@ -110,7 +113,12 @@ def split_dataset(data_df):
     return x_train_df, y_train_df, x_val_df, y_val_df
 
 
-def data_process_pipeline(data_df):
+def select_model(model_choice):
+    model_options = (svm_classification, logreg_classification)
+    return model_options[model_choice]
+
+
+def dataset_process_pipeline(data_df):
     data_df = data_df.drop(
         columns=['id', 'circle_id', 'last_date_of_month_6', 'last_date_of_month_7', 'last_date_of_month_8'])
     data_df = create_days_feat(data_df=data_df,
@@ -122,34 +130,65 @@ def data_process_pipeline(data_df):
     return data_df
 
 
+def get_use_input():
+    user_input = {}
+    compute_tsne_val = int(input('Show t-SNE values? = (1) yes, (2) no: '))
+    if compute_tsne_val == 1:
+        user_input['compute_tsne'] = True
+    else:
+        user_input['compute_tsne'] = False
+    if user_input['compute_tsne']:
+        load_tsne_option = int(input('Load existing t-SNE values? = (1) yes, (2) no: '))
+        if load_tsne_option == 1:
+            user_input['load_tsne'] = True
+        else:
+            user_input['load_tsne'] = False
+    compute_model_option = int(input('Compute a new ML model? = (1) yes, (2) no: '))
+    if compute_model_option == 1:
+        user_input['compute_model'] = True
+    else:
+        user_input['compute_model'] = False
+    select_model_option = int(input('Select a ML model = (1) SVM, (2) Logistic Regression: '))
+    if select_model_option == 1:
+        user_input['select_model'] = 'SVM'
+    else:
+        user_input['select_model'] = 'log'
+    return user_input
+
+
 def main():
+    user_input = get_use_input()
+    # process the training dataset and also separate it into training and validation dataset.
     train_df = get_data_df(datasplit_type='train')
     get_data_properties(data_df=train_df)
-    train_df = data_process_pipeline(data_df=train_df)
+    train_df = dataset_process_pipeline(data_df=train_df)
     x_train_df, y_train_df, x_val_df, y_val_df = split_dataset(data_df=train_df)
 
-    # tsne_plot(data_df=train_df, load_tnse=True)
+    if user_input['compute_tsne']:
+        tsne_plot(data_df=train_df, load_tnse=user_input['load_tsne'])
 
-    compute_model = False
-    if compute_model:
-        # model = svm_classification(x_train_df=x_train_df,
-        #                    y_train_df=y_train_df,
-        #                    x_test_df=x_val_df,
-        #                    y_test_df=y_val_df)
-        logreg_model = logreg_classification(x_train_df=x_train_df,
-                                             y_train_df=y_train_df,
-                                             x_test_df=x_val_df,
-                                             y_test_df=y_val_df)
-        dump(logreg_model, 'logreg_model.joblib')
-    else:
-        logreg_model = load('logreg_model.joblib')
+    if user_input['select_model'] == 'SVM':
+        if user_input['compute_model']:
+            model = svm_classification(x_train_df=x_train_df,
+                                       y_train_df=y_train_df,
+                                       x_test_df=x_val_df,
+                                       y_test_df=y_val_df)
+        else:
+            model = load('svm_model.joblib')
+    elif user_input['select_model'] == 'log':
+        if user_input['compute_model']:
+            model = logreg_classification(x_train_df=x_train_df,
+                                          y_train_df=y_train_df,
+                                          x_test_df=x_val_df,
+                                          y_test_df=y_val_df)
+        else:
+            model = load('logreg_model.joblib')
+
     test_df = get_data_df(datasplit_type='test')
-    test_df = data_process_pipeline(data_df=test_df)
-    logreg_preds = logreg_model.predict(test_df.to_numpy())
-    print('id len', len(np.arange(69999, 70249)))
-    print('churn len', len(logreg_preds))
+    test_df = dataset_process_pipeline(data_df=test_df)
+    model_preds = model.predict(test_df.to_numpy())
     sol_df = pd.DataFrame({'id': np.arange(69999, 99999),
-                           'churn_probability': logreg_preds})
+                           'churn_probability': model_preds})
     sol_df.to_csv('solution.csv')
 
 
